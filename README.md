@@ -49,7 +49,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
     "mssql": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "github:LasseHall/McpSqlServer"],
+      "args": ["-y", "github:EvilPhatBoi/McpSqlServer"],
       "env": {
         "SERVER_NAME": "your-server.database.windows.net",
         "DATABASE_NAME": "your-database",
