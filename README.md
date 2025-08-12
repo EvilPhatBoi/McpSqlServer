@@ -31,6 +31,7 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
         "DATABASE_NAME": "your-database",
         "SQL_USERNAME": "your-username",
         "SQL_PASSWORD": "your-password",
+        "PORT": "1433",
         "TRUST_SERVER_CERTIFICATE": "false",
         "CONNECTION_TIMEOUT": "30",
         "READONLY": "false"
@@ -55,6 +56,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
         "DATABASE_NAME": "your-database",
         "SQL_USERNAME": "your-username",
         "SQL_PASSWORD": "your-password",
+        "PORT": "1433",
         "TRUST_SERVER_CERTIFICATE": "false",
         "CONNECTION_TIMEOUT": "30",
         "READONLY": "false"
@@ -111,6 +113,7 @@ cp .env.example .env
 | `DATABASE_NAME` | Database name | Required |
 | `SQL_USERNAME` | SQL username | Required |
 | `SQL_PASSWORD` | SQL password | Required |
+| `PORT` | SQL Server port | `1433` |
 | `TRUST_SERVER_CERTIFICATE` | Trust self-signed certificates | `false` |
 | `CONNECTION_TIMEOUT` | Connection timeout in seconds | `30` |
 | `READONLY` | Enable read-only mode | `false` |
@@ -149,7 +152,7 @@ npm run typecheck
 
 ### Connection issues
 - Ensure your SQL Server allows remote connections
-- Check firewall rules for SQL Server port (usually 1433)
+- Check firewall rules for SQL Server port (default 1433, or your custom PORT setting)
 - Verify credentials and server name
 
 ### Authentication errors

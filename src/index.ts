@@ -30,9 +30,11 @@ let globalSqlPool: sql.ConnectionPool | null = null;
 export function createSqlConfig(): sql.config {
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 1433;
 
   return {
     server: process.env.SERVER_NAME!,
+    port: port,
     database: process.env.DATABASE_NAME!,
     user: process.env.SQL_USERNAME!,
     password: process.env.SQL_PASSWORD!,
