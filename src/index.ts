@@ -9,6 +9,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import * as os from "os";
 
 // Internal imports
 import { UpdateDataTool } from "./tools/UpdateDataTool.js";
@@ -25,12 +26,44 @@ dotenv.config();
 
 // Globals for connection reuse
 let globalSqlPool: sql.ConnectionPool | null = null;
+let connectionRetryCount = 0;
+const MAX_RETRY_ATTEMPTS = 3;
+const DEBUG = process.env.DEBUG?.toLowerCase() === 'true';
+
+// Debug logging helper
+function debugLog(...args: any[]) {
+  if (DEBUG) {
+    console.error('[MSSQL-MCP DEBUG]', new Date().toISOString(), ...args);
+  }
+}
 
 // Function to create SQL config for standard SQL authentication
 export function createSqlConfig(): sql.config {
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 1433;
+  
+  // Validate port number
+  if (isNaN(port) || port < 1 || port > 65535) {
+    throw new Error(`Invalid port number: ${process.env.PORT}. Must be between 1 and 65535.`);
+  }
+  
+  // Platform-specific adjustments
+  const platform = os.platform();
+  const isMacOS = platform === 'darwin';
+  
+  // Use longer timeout on macOS if not specified
+  const adjustedTimeout = isMacOS && !process.env.CONNECTION_TIMEOUT ? 60 : connectionTimeout;
+  
+  debugLog('Platform:', platform);
+  debugLog('Configuration:', {
+    server: process.env.SERVER_NAME,
+    database: process.env.DATABASE_NAME,
+    port,
+    trustServerCertificate,
+    connectionTimeout: adjustedTimeout,
+    isMacOS
+  });
 
   return {
     server: process.env.SERVER_NAME!,
@@ -40,14 +73,22 @@ export function createSqlConfig(): sql.config {
     password: process.env.SQL_PASSWORD!,
     options: {
       encrypt: true,
-      trustServerCertificate,
-      enableArithAbort: true
+      trustServerCertificate: isMacOS ? true : trustServerCertificate, // macOS often needs this
+      enableArithAbort: true,
+      // macOS specific TLS settings
+      ...(isMacOS && {
+        cryptoCredentialsDetails: {
+          minVersion: 'TLSv1.2'
+        }
+      })
     },
-    connectionTimeout: connectionTimeout * 1000, // convert seconds to milliseconds
+    connectionTimeout: adjustedTimeout * 1000, // convert seconds to milliseconds
+    requestTimeout: adjustedTimeout * 1000, // Also set request timeout
     pool: {
       max: 10,
       min: 0,
-      idleTimeoutMillis: 30000
+      idleTimeoutMillis: 30000,
+      acquireTimeoutMillis: adjustedTimeout * 1000
     }
   };
 }
@@ -156,22 +197,60 @@ runServer().catch((error) => {
 async function ensureSqlConnection() {
   // If we have a pool and it's connected, reuse it
   if (globalSqlPool && globalSqlPool.connected) {
+    debugLog('Using existing connection pool');
     return;
   }
 
-  // Otherwise, create a new connection
-  const config = createSqlConfig();
+  debugLog('Creating new connection...');
   
   // Close old pool if exists
   if (globalSqlPool) {
+    debugLog('Closing existing pool...');
     try {
       await globalSqlPool.close();
     } catch (err) {
-      // Ignore errors when closing
+      debugLog('Error closing pool:', err);
     }
+    globalSqlPool = null;
   }
 
-  globalSqlPool = await sql.connect(config);
+  let lastError: any = null;
+  
+  // Retry logic with exponential backoff
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    try {
+      debugLog(`Connection attempt ${attempt}/${MAX_RETRY_ATTEMPTS}`);
+      
+      const config = createSqlConfig();
+      globalSqlPool = await sql.connect(config);
+      
+      debugLog('Connection successful!');
+      connectionRetryCount = 0; // Reset retry count on success
+      
+      // Set up error handlers for the pool
+      globalSqlPool.on('error', (err: any) => {
+        console.error('SQL Pool Error:', err);
+        debugLog('Pool error occurred:', err);
+        // Mark pool as null so next request will reconnect
+        globalSqlPool = null;
+      });
+      
+      return;
+    } catch (err: any) {
+      lastError = err;
+      console.error(`Connection attempt ${attempt} failed:`, err.message);
+      debugLog('Full error details:', err);
+      
+      if (attempt < MAX_RETRY_ATTEMPTS) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+        debugLog(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  // If we get here, all retries failed
+  throw new Error(`Failed to connect after ${MAX_RETRY_ATTEMPTS} attempts. Last error: ${lastError?.message || 'Unknown error'}`);
 }
 
 // Patch all tool handlers to ensure SQL connection before running

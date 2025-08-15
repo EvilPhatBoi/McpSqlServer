@@ -59,12 +59,18 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
         "PORT": "1433",
         "TRUST_SERVER_CERTIFICATE": "false",
         "CONNECTION_TIMEOUT": "30",
-        "READONLY": "false"
+        "READONLY": "false",
+        "DEBUG": "false"
       }
     }
   }
 }
 ```
+
+**Note for macOS users:** If you experience connection issues, the server automatically adjusts settings for macOS. You can also manually set:
+- `"TRUST_SERVER_CERTIFICATE": "true"` 
+- `"CONNECTION_TIMEOUT": "60"` or higher
+- `"DEBUG": "true"` to see detailed connection logs
 
 ### Option 2: Clone and run locally
 
@@ -114,9 +120,10 @@ cp .env.example .env
 | `SQL_USERNAME` | SQL username | Required |
 | `SQL_PASSWORD` | SQL password | Required |
 | `PORT` | SQL Server port | `1433` |
-| `TRUST_SERVER_CERTIFICATE` | Trust self-signed certificates | `false` |
-| `CONNECTION_TIMEOUT` | Connection timeout in seconds | `30` |
+| `TRUST_SERVER_CERTIFICATE` | Trust self-signed certificates | `false` (auto-enabled on macOS) |
+| `CONNECTION_TIMEOUT` | Connection timeout in seconds | `30` (60 on macOS) |
 | `READONLY` | Enable read-only mode | `false` |
+| `DEBUG` | Enable debug logging | `false` |
 
 ## Usage Examples
 
@@ -154,6 +161,24 @@ npm run typecheck
 - Ensure your SQL Server allows remote connections
 - Check firewall rules for SQL Server port (default 1433, or your custom PORT setting)
 - Verify credentials and server name
+- Enable debug logging by setting `DEBUG=true` in your environment variables
+
+### macOS-specific issues
+- The server automatically enables `TRUST_SERVER_CERTIFICATE` on macOS to handle SSL/TLS differences
+- Default connection timeout is increased to 60 seconds on macOS
+- If you still have connection issues, try:
+  - Explicitly setting `TRUST_SERVER_CERTIFICATE=true`
+  - Increasing `CONNECTION_TIMEOUT` to 120 or higher
+  - Check that your SQL Server accepts TLS 1.2 connections
+
+### Debug mode
+To enable detailed logging for troubleshooting:
+```json
+"env": {
+  "DEBUG": "true",
+  // ... other environment variables
+}
+```
 
 ### Authentication errors
 - This server uses SQL authentication, not Windows authentication
