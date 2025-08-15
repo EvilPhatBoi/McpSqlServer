@@ -32,6 +32,7 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
         "SQL_USERNAME": "your-username",
         "SQL_PASSWORD": "your-password",
         "PORT": "1433",
+        "ENCRYPT": "true",
         "TRUST_SERVER_CERTIFICATE": "false",
         "CONNECTION_TIMEOUT": "30",
         "READONLY": "false"
@@ -57,6 +58,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
         "SQL_USERNAME": "your-username",
         "SQL_PASSWORD": "your-password",
         "PORT": "1433",
+        "ENCRYPT": "true",
         "TRUST_SERVER_CERTIFICATE": "false",
         "CONNECTION_TIMEOUT": "30",
         "READONLY": "false",
@@ -67,9 +69,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-**Note for macOS users:** If you experience connection issues, the server automatically adjusts settings for macOS. You can also manually set:
-- `"TRUST_SERVER_CERTIFICATE": "true"` 
-- `"CONNECTION_TIMEOUT": "60"` or higher
+**Note for legacy SQL Servers:** If you experience SSL/TLS connection issues with older SQL Server versions, try:
+- `"ENCRYPT": "false"` to disable TLS/SSL encryption
+- `"TRUST_SERVER_CERTIFICATE": "true"` to trust self-signed certificates
+- `"CONNECTION_TIMEOUT": "60"` or higher for slower connections
 - `"DEBUG": "true"` to see detailed connection logs
 
 ### Option 2: Clone and run locally
@@ -114,14 +117,15 @@ cp .env.example .env
 ## Environment Variables
 
 | Variable | Description | Default |
-|----------|-------------|---------|
+|----------|-------------|---------| 
 | `SERVER_NAME` | SQL Server hostname | Required |
 | `DATABASE_NAME` | Database name | Required |
 | `SQL_USERNAME` | SQL username | Required |
 | `SQL_PASSWORD` | SQL password | Required |
 | `PORT` | SQL Server port | `1433` |
-| `TRUST_SERVER_CERTIFICATE` | Trust self-signed certificates | `false` (auto-enabled on macOS) |
-| `CONNECTION_TIMEOUT` | Connection timeout in seconds | `30` (60 on macOS) |
+| `ENCRYPT` | Enable TLS/SSL encryption | `true` |
+| `TRUST_SERVER_CERTIFICATE` | Trust self-signed certificates | `false` |
+| `CONNECTION_TIMEOUT` | Connection timeout in seconds | `30` |
 | `READONLY` | Enable read-only mode | `false` |
 | `DEBUG` | Enable debug logging | `false` |
 
@@ -163,13 +167,11 @@ npm run typecheck
 - Verify credentials and server name
 - Enable debug logging by setting `DEBUG=true` in your environment variables
 
-### macOS-specific issues
-- The server automatically enables `TRUST_SERVER_CERTIFICATE` on macOS to handle SSL/TLS differences
-- Default connection timeout is increased to 60 seconds on macOS
-- If you still have connection issues, try:
-  - Explicitly setting `TRUST_SERVER_CERTIFICATE=true`
-  - Increasing `CONNECTION_TIMEOUT` to 120 or higher
-  - Check that your SQL Server accepts TLS 1.2 connections
+### SSL/TLS connection issues
+- For older SQL Server versions that don't support modern TLS, set `ENCRYPT=false`
+- If using self-signed certificates, set `TRUST_SERVER_CERTIFICATE=true`
+- For connection timeout issues, increase `CONNECTION_TIMEOUT` to 60 or higher
+- Check that your SQL Server accepts the TLS version your Node.js supports
 
 ### Debug mode
 To enable detailed logging for troubleshooting:

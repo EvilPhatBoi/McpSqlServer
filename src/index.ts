@@ -9,7 +9,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import * as os from "os";
 
 // Internal imports
 import { UpdateDataTool } from "./tools/UpdateDataTool.js";
@@ -39,7 +38,6 @@ function debugLog(...args: any[]) {
 
 // Function to create SQL config for standard SQL authentication
 export function createSqlConfig(): sql.config {
-  const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 1433;
   
@@ -48,21 +46,16 @@ export function createSqlConfig(): sql.config {
     throw new Error(`Invalid port number: ${process.env.PORT}. Must be between 1 and 65535.`);
   }
   
-  // Platform-specific adjustments
-  const platform = os.platform();
-  const isMacOS = platform === 'darwin';
+  const encrypt = process.env.ENCRYPT?.toLowerCase() !== 'false';
+  const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   
-  // Use longer timeout on macOS if not specified
-  const adjustedTimeout = isMacOS && !process.env.CONNECTION_TIMEOUT ? 60 : connectionTimeout;
-  
-  debugLog('Platform:', platform);
   debugLog('Configuration:', {
     server: process.env.SERVER_NAME,
     database: process.env.DATABASE_NAME,
     port,
+    encrypt,
     trustServerCertificate,
-    connectionTimeout: adjustedTimeout,
-    isMacOS
+    connectionTimeout
   });
 
   return {
@@ -72,23 +65,17 @@ export function createSqlConfig(): sql.config {
     user: process.env.SQL_USERNAME!,
     password: process.env.SQL_PASSWORD!,
     options: {
-      encrypt: true,
-      trustServerCertificate: isMacOS ? true : trustServerCertificate, // macOS often needs this
-      enableArithAbort: true,
-      // macOS specific TLS settings
-      ...(isMacOS && {
-        cryptoCredentialsDetails: {
-          minVersion: 'TLSv1.2'
-        }
-      })
+      encrypt: encrypt,
+      trustServerCertificate: trustServerCertificate,
+      enableArithAbort: true
     },
-    connectionTimeout: adjustedTimeout * 1000, // convert seconds to milliseconds
-    requestTimeout: adjustedTimeout * 1000, // Also set request timeout
+    connectionTimeout: connectionTimeout * 1000, // convert seconds to milliseconds
+    requestTimeout: connectionTimeout * 1000, // Also set request timeout
     pool: {
       max: 10,
       min: 0,
       idleTimeoutMillis: 30000,
-      acquireTimeoutMillis: adjustedTimeout * 1000
+      acquireTimeoutMillis: connectionTimeout * 1000
     }
   };
 }
